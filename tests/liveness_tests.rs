@@ -239,10 +239,66 @@ mod tests {
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
         let cfg = ControlFlowGraph::from(&prog);
-        let got_def = cfg.get_node(1).get_defs();
-        let got_use = cfg.get_node(1).get_uses();
-        assert!(got_def.contains("a"));
-        assert!(got_use.contains("a"));
+        let got1 = cfg.get_node(0).get_succs().contains(&1);
+        let got2 = cfg.get_node(1).get_succs().contains(&2);
+        let got3 = cfg.get_node(2).get_succs().is_empty();
+        assert!(got1, "Node 1 did not succede Node 0");
+        assert!(got2, "Node 2 did not succede Node 1");
+        assert!(got3, "Node 3 did succede have a successor");
+    }
+    // !TODO Verify this test, i was going out of my mind
+    #[test]
+    fn succ_do_while() {
+        let s = "a = 41;do {a = a+1;} while( a < 42 ); return a;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let got1 = cfg.get_node(0).get_succs().contains(&1);
+        let got2 = cfg.get_node(1).get_succs().contains(&2);
+        let got3 = cfg.get_node(2).get_succs().contains(&1);
+        let got4 = cfg.get_node(2).get_succs().contains(&3);
+        let got5 = cfg.get_node(3).get_succs().is_empty();
+        for (idx, n) in cfg.get_nodes().iter().enumerate() {
+            println!(
+                "Node {idx}: succ: {:?}, preds: {:?}",
+                n.get_succs(),
+                n.get_preds()
+            );
+        }
+        assert!(got1, "Node 1 did not succede to the body");
+        assert!(got2, "Node 2 did not succede to the cond");
+        assert!(got3, "Node 3 (cond) not branch conditionally, true");
+        assert!(got4, "Node 3 (cond) not branch conditionally, false ");
+        assert!(got5, "Node 4 did have a successor");
+    }
+    // !TODO Verify this test, i was going out of my mind
+    #[test]
+    fn pred_do_while() {
+        let s = "a = 41;do {a = a+1;} while( a < 42 ); return a;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        // node 0: assignment
+        // node 1: body (assignment)
+        // node 2: cond (expr)
+        // node 3: return
+        let got1 = cfg.get_node(0).get_preds().is_empty();
+        let got2 = cfg.get_node(1).get_preds().contains(&0);
+        let got3 = cfg.get_node(1).get_preds().contains(&2);
+        let got4 = cfg.get_node(2).get_preds().contains(&1);
+        let got5 = cfg.get_node(3).get_preds().contains(&2);
+        for (idx, n) in cfg.get_nodes().iter().enumerate() {
+            println!("Node {idx}: {:?}\n", n)
+        }
+        assert!(got1, "Node 0 was not empty");
+        assert!(got2, "Node 0 did not continue to the body");
+        assert!(got3, "Node 2 did not loop back to the body");
+        assert!(got4, "Node 1 did not continue to the cond");
+        assert!(got5, "Node 2 did not continue to the return");
     }
     // in and out tests
 }

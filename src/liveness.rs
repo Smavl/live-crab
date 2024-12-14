@@ -29,52 +29,122 @@ impl ControlFlowGraph {
     }
 }
 
-fn flatten_program(p: &Program) -> Vec<Node> {
-    let flattened_stms = p
-        .stmts
-        .iter()
-        .map(|s| flatten_statements_with_bodies(s))
-        .flatten()
-        .collect::<Vec<Node>>();
-
-    flattened_stms
+struct FlattenerState {
+    nodes: Vec<Node>,
+    current_offset: usize,
 }
-fn flatten_statements_with_bodies(stmt: &Statement) -> Vec<Node> {
-    let mut res = Vec::new();
-    match stmt {
-        a @ Statement::Assignment(_, _) => res.push(handle_assignment(a)),
-        r @ Statement::Return(_) => res.push(handle_return(r)),
-        Statement::If(cond, body) => {
-            let cond = Node::new(NodeKind::from(cond.clone()));
 
-            res.push(cond);
-
-            let body = body
-                .iter()
-                .map(|s| flatten_statements_with_bodies(s))
-                .flatten()
-                .collect::<Vec<Node>>();
-
-            res.extend(body)
+impl FlattenerState {
+    fn new() -> Self {
+        FlattenerState {
+            nodes: Vec::new(),
+            current_offset: 0,
         }
-        Statement::DoWhile(body, cond) => {
-            let body = body
-                .iter()
-                .map(|s| flatten_statements_with_bodies(s))
-                .flatten()
-                .collect::<Vec<Node>>();
-
-            let cond = Node::new(NodeKind::from(cond.clone()));
-
-            res.extend(body);
-            res.push(cond);
-        }
-        e => panic!("Dun goofed!: {:?}", e),
     }
-    // for r in res.iter() {
-    //     println!("{:?}", r);
-    // }
-    res
+
+    fn add_node(&mut self, mut node: Node) {
+        if 0 < self.get_offset() && node.get_preds().is_empty() {
+            node.add_pred(self.get_offset() - 1);
+        }
+
+        if node.get_succs().is_empty() {
+            if let NodeKind::Return(_) = node.get_node_kind() {
+            } else {
+                node.add_succ(self.get_offset() + 1);
+            }
+        }
+
+        self.nodes.push(node);
+    }
+
+    fn get_offset(&self) -> usize {
+        self.current_offset
+    }
+    fn inc_offset(&mut self) {
+        self.current_offset += 1;
+    }
+}
+
+fn flatten_program(p: &Program) -> Vec<Node> {
+    let mut flat_state = FlattenerState::new();
+
+    flatten_statements(&mut flat_state, p.stmts.iter().collect());
+
+    if let Some(last_node) = flat_state.nodes.last_mut() {
+        last_node.clear_succ();
+    }
+
+    flat_state.nodes
+}
+fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
+    for stmt in stmts {
+        match stmt {
+            a @ Statement::Assignment(_, _) => {
+                let mut node = handle_assignment(a);
+
+                state.add_node(node);
+                state.inc_offset();
+            }
+            r @ Statement::Return(_) => {
+                let mut node = handle_return(r);
+                state.add_node(node);
+                state.inc_offset();
+            }
+            Statement::If(cond, body) => {
+                let body_start = state.get_offset() + 1;
+
+                let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
+
+                let mut body_flat_state = FlattenerState::new();
+
+                body_flat_state.current_offset = body_start;
+
+                flatten_statements(&mut body_flat_state, body.iter().collect());
+                let body_end = body_flat_state.nodes.len();
+
+                cond_node.add_succ(body_start);
+                cond_node.add_succ(body_start + body_end);
+
+                state.add_node(cond_node);
+                state.inc_offset();
+
+                for bn in body_flat_state.nodes {
+                    state.add_node(bn);
+                    state.inc_offset();
+                }
+            }
+            Statement::DoWhile(body, cond) => {
+                let body_start = state.get_offset();
+                let mut body_flat_state = FlattenerState::new();
+                body_flat_state.current_offset = body_start;
+
+                flatten_statements(&mut body_flat_state, body.iter().collect());
+                let body_end = body_start + body_flat_state.nodes.len();
+
+                for bn in body_flat_state.nodes {
+                    state.add_node(bn);
+                    state.inc_offset();
+                }
+
+                let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
+
+                let cond_node_offset = state.get_offset();
+                // Cond node goes to start of loop if true
+                cond_node.add_succ(body_start);
+                state.nodes[body_start].add_pred(cond_node_offset);
+                // Cond node goes to next node if false
+                cond_node.add_succ(body_end + 1);
+
+                // cond_node.set_succ(vec![body_start - 1, body_end + 1]);
+
+                cond_node.add_pred(state.get_offset() - 1);
+
+                state.add_node(cond_node);
+                state.inc_offset();
+            }
+            _ => panic!("Not implemented yet"),
+        }
+    }
 }
 fn handle_assignment(stmt: &Statement) -> Node {
     match stmt {
@@ -159,6 +229,21 @@ impl Node {
     }
     pub fn add_succ(&mut self, n: usize) {
         self.succ.insert(n);
+    }
+
+    pub fn set_pred(&mut self, nv: Vec<usize>) {
+        self.pred.clear();
+        let _ = nv.iter().map(|p| self.add_pred(*p));
+    }
+    pub fn set_succ(&mut self, nv: Vec<usize>) {
+        self.succ.clear();
+        let _ = nv.iter().map(|p| self.add_succ(*p));
+    }
+    pub fn clear_pred(&mut self) {
+        self.pred.clear();
+    }
+    pub fn clear_succ(&mut self) {
+        self.succ.clear();
     }
 
     pub fn get_preds(&self) -> &HashSet<usize> {
