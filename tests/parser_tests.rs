@@ -8,20 +8,16 @@ fn get_str_from_path(path: &str) -> Option<String> {
 }
 
 // fn create_binop(left: Expr, op: Operator, right: Expr) -> Expr {
-//     Expr::BinOp(Box::new(left), Box::new(op), Box::new(right))
+//     Expr::BinOp(Box::new(left), op, Box::new(right))
 // }
 // fn create_binop_llit(left: i32, op: Operator, right: Expr) -> Expr {
-//     Expr::BinOp(Box::new(Expr::Int(left)), Box::new(op), Box::new(right))
+//     Expr::BinOp(Box::new(Expr::Int(left)), op, Box::new(right))
 // }
 fn create_binop_rlit(left: Expr, op: Operator, right: i32) -> Expr {
-    Expr::BinOp(Box::new(left), Box::new(op), Box::new(Expr::Int(right)))
+    Expr::BinOp(Box::new(left), op, Box::new(Expr::Int(right)))
 }
 fn create_binop_lit(left: i32, op: Operator, right: i32) -> Expr {
-    Expr::BinOp(
-        Box::new(Expr::Int(left)),
-        Box::new(op),
-        Box::new(Expr::Int(right)),
-    )
+    Expr::BinOp(Box::new(Expr::Int(left)), op, Box::new(Expr::Int(right)))
 }
 
 #[cfg(test)]
@@ -109,7 +105,7 @@ mod tests {
             Statement::While(
                 Box::new(Expr::BinOp(
                     Box::new(Expr::Id("i".to_string())),
-                    Box::new(Operator::LessThan),
+                    Operator::LessThan,
                     Box::new(Expr::Int(9)),
                 )),
                 // body
@@ -130,7 +126,59 @@ mod tests {
         assert_eq!(got, want, "Got: {:?}\n\n", got);
     }
     #[test]
-    fn parser_loop_example1() {
+    fn parser_do_while_loop_() {
+        // Code from Examples/loop1 :
+        // i = 0;
+        // do {
+        //  i = i + 1;
+        // }
+        // while (i < 9);
+        // return i;
+        let file = get_str_from_path("examples/do_while").unwrap();
+        let lexer = Lexer::new(file.as_str());
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let got = parser.parse();
+        let want_vec = vec![
+            // i = 0;
+            Statement::Assignment(Box::new(Expr::Id("i".to_string())), Box::new(Expr::Int(0))),
+            // do {
+            Statement::DoWhile(
+                // body
+                vec![
+                    // i = i + 1;
+                    Statement::Assignment(
+                        Box::new(Expr::Id("i".to_string())),
+                        Box::new(create_binop_rlit(
+                            Expr::Id("i".to_string()),
+                            Operator::Plus,
+                            1,
+                        )),
+                    ),
+                    Statement::Assignment(
+                        Box::new(Expr::Id("i".to_string())),
+                        Box::new(create_binop_rlit(
+                            Expr::Id("i".to_string()),
+                            Operator::Plus,
+                            1,
+                        )),
+                    ),
+                ],
+                // while (i < 9);
+                Box::new(Expr::BinOp(
+                    Box::new(Expr::Id("i".to_string())),
+                    Operator::LessThan,
+                    Box::new(Expr::Int(9)),
+                )),
+            ),
+            Statement::Return(Box::new(Expr::Id("i".to_string()))),
+        ];
+        // println!("Want: {:?}", want_vec);
+        let want = Program::new(want_vec);
+        assert_eq!(got, want, "Got: {:?}\n\n", got);
+    }
+    #[test]
+    fn parser_while_loop_example1() {
         // Code from Examples/loop1 :
         // i = 0;
         // while (i < 9) {
@@ -149,7 +197,7 @@ mod tests {
             Statement::While(
                 Box::new(Expr::BinOp(
                     Box::new(Expr::Id("i".to_string())),
-                    Box::new(Operator::LessThan),
+                    Operator::LessThan,
                     Box::new(Expr::Int(9)),
                 )),
                 // body
@@ -168,6 +216,12 @@ mod tests {
             Statement::Return(Box::new(Expr::Id("i".to_string()))),
         ];
         let want = Program::new(want_vec);
-        assert_eq!(got, want, "Got: {:?}\n\n", got);
+        assert_eq!(
+            got,
+            want,
+            "\nGot: {}\n\nWant: {}\n\n",
+            parser.pretty_print_program(&got),
+            parser.pretty_print_program(&want)
+        );
     }
 }

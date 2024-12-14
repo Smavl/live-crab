@@ -1,17 +1,19 @@
+use std::collections::HashSet;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
     Id(String),
     Int(i32),
-    BinOp(Box<Expr>, Box<Operator>, Box<Expr>),
+    BinOp(Box<Expr>, Operator, Box<Expr>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Operator {
     Plus,
     Minus,
     Mult,
     Div,
-    Rem,
+    Mod,
     LessThan,
 }
 
@@ -21,15 +23,19 @@ pub enum Statement {
     Return(Box<Expr>),
     If(Box<Expr>, Vec<Statement>),
     While(Box<Expr>, Vec<Statement>),
+    DoWhile(Vec<Statement>, Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
-    stmts: Vec<Statement>,
+    pub stmts: Vec<Statement>,
+    // pub variables: Vec<Expr::Id(String)>,
 }
 
 impl Program {
     pub fn new(stmts: Vec<Statement>) -> Self {
         Program { stmts }
     }
+
+    // pub fn
 }

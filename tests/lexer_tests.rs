@@ -95,6 +95,15 @@ mod tests {
         want.push(Token::Keyword(String::from("if")));
         assert_eq!(got, &want);
     }
+    #[test]
+    fn lex_do_keyword() {
+        let s = "do";
+        let lexer = Lexer::new(s);
+        let got = &lexer.tokenize();
+        let mut want = Vec::new();
+        want.push(Token::Keyword(String::from("do")));
+        assert_eq!(got, &want);
+    }
     // Identifiers
     #[test]
     fn lex_id_a() {
@@ -169,6 +178,30 @@ mod tests {
         want.push(Token::Int(1));
         want.push(Token::Semicolon);
         want.push(Token::RBrace);
+        assert_eq!(got, &want);
+    }
+    #[test]
+    fn lex_do_while_loop() {
+        let s = "do { a = a + 1; } while ( a < 10 ); ";
+        let lexer = Lexer::new(s);
+        let got = &lexer.tokenize();
+        let mut want = Vec::new();
+        want.push(Token::Keyword(String::from("do")));
+        want.push(Token::LBrace);
+        want.push(Token::Id(String::from("a")));
+        want.push(Token::Equals);
+        want.push(Token::Id(String::from("a")));
+        want.push(Token::Plus);
+        want.push(Token::Int(1));
+        want.push(Token::Semicolon);
+        want.push(Token::RBrace);
+        want.push(Token::Keyword(String::from("while")));
+        want.push(Token::LParen);
+        want.push(Token::Id(String::from("a")));
+        want.push(Token::LessThan);
+        want.push(Token::Int(10));
+        want.push(Token::RParen);
+        want.push(Token::Semicolon);
         assert_eq!(got, &want);
     }
 

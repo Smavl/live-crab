@@ -45,6 +45,7 @@ fn string_to_token(s: &str) -> Option<Token> {
         "return" => Some(Token::Keyword(String::from("return"))),
         "while" => Some(Token::Keyword(String::from("while"))),
         "break" => Some(Token::Keyword(String::from("break"))),
+        "do" => Some(Token::Keyword(String::from("do"))),
         s => Some(Token::Id(String::from(s))),
     }
 }

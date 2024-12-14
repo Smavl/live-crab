@@ -1,9 +1,16 @@
-use live_crab::lexer::Lexer; // Import the `Lexer` struct from `lexer.rs`
-use live_crab::lexer::Token; // Import the `Token` enum (if it's in `lib.rs` or `lexer.rs`)
-use std::{
-    env,
-    io::{self, BufReader, Read},
-};
+use live_crab::ast::*;
+use live_crab::lexer::Lexer;
+// use live_crab::lexer::Token;
+use live_crab::liveness::*;
+use live_crab::parser::Parser;
+use std::{env, io};
+
+fn create_binop_rlit(left: Expr, op: Operator, right: i32) -> Expr {
+    Expr::BinOp(Box::new(left), op, Box::new(Expr::Int(right)))
+}
+fn create_binop_lit(left: i32, op: Operator, right: i32) -> Expr {
+    Expr::BinOp(Box::new(Expr::Int(left)), op, Box::new(Expr::Int(right)))
+}
 fn get_str_from_path(path: &str) -> Option<String> {
     let cwd = env::current_dir().unwrap();
     println!("Current working directory: {}", cwd.display());
@@ -11,31 +18,12 @@ fn get_str_from_path(path: &str) -> Option<String> {
 }
 
 fn main() -> io::Result<()> {
-    // open example file
-    // let path = "./../examples/s1";
-    // let f = File::open(path)?;
-    // let mut r = BufReader::new(f);
-    // let mut buf = String::new();
-    // r.read_to_string(&mut buf)?;
-
-    // println!("----- Input string: -----\n{buf}");
-
-    // println!("----- Lexer init : -----");
-
-    // let lexer = Lexer::new(";");
-
-    // let tks = lexer.tokenize();
-    // println!("Tokens: {:?}", tks);
-
-    let s = "a";
-    let lexer = Lexer::new(s);
-    let got = &lexer.tokenize();
-    let mut want = Vec::new();
-    want.push(Token::Id(String::from("a")));
-    assert_eq!(got, &want);
-
-    let s = get_str_from_path("../examples/s1");
-    println!("Example: {:?}", s.unwrap());
-
+    let file = get_str_from_path("examples/do_while").unwrap();
+    let lexer = Lexer::new(file.as_str());
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+    let prog = parser.parse();
+    let cfg = ControlFlowGraph::from(&prog);
+    println!("CFG:\n{}", cfg);
     Ok(())
 }
