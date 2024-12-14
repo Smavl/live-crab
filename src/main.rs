@@ -24,6 +24,6 @@ fn main() -> io::Result<()> {
     let mut parser = Parser::new(tokens);
     let prog = parser.parse();
     let cfg = ControlFlowGraph::from(&prog);
-    println!("CFG:\n{}", cfg);
+    // println!("CFG:\n{}", cfg);
     Ok(())
 }

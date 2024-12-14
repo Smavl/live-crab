@@ -216,12 +216,6 @@ mod tests {
             Statement::Return(Box::new(Expr::Id("i".to_string()))),
         ];
         let want = Program::new(want_vec);
-        assert_eq!(
-            got,
-            want,
-            "\nGot: {}\n\nWant: {}\n\n",
-            parser.pretty_print_program(&got),
-            parser.pretty_print_program(&want)
-        );
+        assert_eq!(got, want, "\nGot: {}\n\nWant: {}\n\n", &got, &want);
     }
 }

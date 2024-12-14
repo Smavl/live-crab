@@ -1,67 +1,9 @@
 use crate::ast::*;
-use crate::parser::*;
-use std::{collections::HashSet, fmt::Display};
+use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ControlFlowGraph {
     nodes: Vec<Node>,
-}
-
-impl Display for ControlFlowGraph {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut res = String::new();
-        for n in self.nodes.iter() {
-            match &n.node_kind {
-                NodeKind::Return(e) => {
-                    let mut ret = String::new();
-                    ret.push_str("return ");
-                    ret.push_str(format!("{};\n", e.clone()).as_str());
-                    res.push_str(ret.as_str())
-                }
-                NodeKind::Assignment(lvl, e) => {
-                    let mut ret = String::new();
-                    ret.push_str(format!("{} = {};\n", lvl.clone(), e.clone()).as_str());
-                    res.push_str(ret.as_str())
-                }
-                NodeKind::Condition(e) => {
-                    let mut ret = String::new();
-                    ret.push_str(format!("if {}\n", e.clone()).as_str());
-                    res.push_str(ret.as_str())
-                }
-                e => panic!("aws {:?}", e),
-            }
-        }
-        write!(f, "{}", res)
-    }
-}
-
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", pretty_print_expr(self))
-    }
-}
-fn pretty_print_expr(ex: &Expr) -> String {
-    match ex {
-        Expr::Id(id) => id.clone(),
-        Expr::Int(n) => n.to_string(),
-        Expr::BinOp(left, op, right) => {
-            let l = pretty_print_expr(left);
-            let o = pretty_print_operator(op);
-            let r = pretty_print_expr(right);
-            format!("{} {} {}", l, o, r)
-        }
-    }
-}
-
-fn pretty_print_operator(op: &Operator) -> String {
-    match *op {
-        Operator::Plus => "+".to_string(),
-        Operator::Minus => "-".to_string(),
-        Operator::Mod => "%".to_string(),
-        Operator::Div => "/".to_string(),
-        Operator::Mult => "*".to_string(),
-        Operator::LessThan => "<".to_string(),
-    }
 }
 
 impl ControlFlowGraph {
@@ -75,8 +17,15 @@ impl ControlFlowGraph {
         cfg
     }
 
-    pub fn get_nodes(&self) -> &Vec<Node> {
-        &self.nodes
+    pub fn get_nodes(&self) -> Vec<&Node> {
+        self.nodes.iter().map(|n| n).collect()
+    }
+    pub fn get_node(&self, n: usize) -> &Node {
+        if let Some(n) = self.nodes.get(n) {
+            n
+        } else {
+            panic!("That node Could not be found")
+        }
     }
 }
 
@@ -122,14 +71,27 @@ fn flatten_statements_with_bodies(stmt: &Statement) -> Vec<Node> {
         }
         e => panic!("Dun goofed!: {:?}", e),
     }
-    for r in res.iter() {
-        println!("{:?}", r);
-    }
+    // for r in res.iter() {
+    //     println!("{:?}", r);
+    // }
     res
 }
 fn handle_assignment(stmt: &Statement) -> Node {
     match stmt {
-        Statement::Assignment(lvl, e) => Node::new(NodeKind::from((lvl.clone(), e.clone()))),
+        Statement::Assignment(lvl, e) => {
+            let lval = lvl.clone();
+            let exp = e.clone();
+
+            let mut node = Node::new(NodeKind::from((lval, exp)));
+
+            // add the lvl to the def set
+            if let Expr::Id(id) = *lvl.clone() {
+                node.insert_def(id);
+            }
+
+            node.use_extend(e.clone().iter().collect::<HashSet<String>>());
+            node
+        }
         _ => panic!("Death"),
     }
 }
@@ -140,21 +102,70 @@ fn handle_return(stmt: &Statement) -> Node {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum NodeKind {
     Assignment(Box<Expr>, Box<Expr>),
     Condition(Box<Expr>),
     Return(Box<Expr>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+pub fn get_ids_from_expr(e: Box<Expr>) -> Vec<String> {
+    e.iter().collect()
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Node {
     node_kind: NodeKind,
+    use_set: HashSet<String>,
+    def_set: HashSet<String>,
+    pred: HashSet<usize>,
+    succ: HashSet<usize>,
 }
 
 impl Node {
     pub fn new(node_kind: NodeKind) -> Self {
-        Node { node_kind }
+        Node {
+            node_kind,
+            use_set: HashSet::new(),
+            def_set: HashSet::new(),
+            pred: HashSet::new(),
+            succ: HashSet::new(),
+        }
+    }
+
+    pub fn get_node_kind(&self) -> &NodeKind {
+        &self.node_kind
+    }
+
+    pub fn use_extend(&mut self, vars: HashSet<String>) {
+        self.use_set.extend(vars);
+    }
+    pub fn insert_use(&mut self, var: String) {
+        self.use_set.insert(var);
+    }
+    pub fn insert_def(&mut self, var: String) {
+        self.def_set.insert(var);
+    }
+
+    pub fn get_defs(&self) -> &HashSet<String> {
+        &self.def_set
+    }
+    pub fn get_uses(&self) -> &HashSet<String> {
+        &self.use_set
+    }
+
+    pub fn add_pred(&mut self, n: usize) {
+        self.pred.insert(n);
+    }
+    pub fn add_succ(&mut self, n: usize) {
+        self.succ.insert(n);
+    }
+
+    pub fn get_preds(&self) -> &HashSet<usize> {
+        &self.pred
+    }
+    pub fn get_succs(&self) -> &HashSet<usize> {
+        &self.succ
     }
 }
 

@@ -15,17 +15,11 @@ fn get_str_from_path(path: &str) -> Option<String> {
 // }
 //
 // helper function to wrap expressions in a Node
-fn make_ass_node_lit(id: &str, lit: i32) -> Node {
-    Node::new(NodeKind::Assignment(
-        Box::new(Expr::Id(id.to_string())),
-        Box::new(Expr::Int(lit)),
-    ))
+fn make_ass_node_lit(id: &str, lit: i32) -> NodeKind {
+    NodeKind::Assignment(Box::new(Expr::Id(id.to_string())), Box::new(Expr::Int(lit)))
 }
-fn make_ass_node_exp(id: &str, exp: Expr) -> Node {
-    Node::new(NodeKind::Assignment(
-        Box::new(Expr::Id(id.to_string())),
-        Box::new(exp),
-    ))
+fn make_ass_node_exp(id: &str, exp: Expr) -> NodeKind {
+    NodeKind::Assignment(Box::new(Expr::Id(id.to_string())), Box::new(exp))
 }
 fn make_inc(id: &str) -> Expr {
     Expr::BinOp(
@@ -35,8 +29,8 @@ fn make_inc(id: &str) -> Expr {
     )
 }
 
-fn make_return(e: Expr) -> Node {
-    Node::new(NodeKind::Return(Box::new(e)))
+fn make_return(e: Expr) -> NodeKind {
+    NodeKind::Return(Box::new(e))
 }
 
 #[cfg(test)]
@@ -53,13 +47,9 @@ mod tests {
         let prog = parser.parse();
         let cfg = ControlFlowGraph::from(&prog);
         assert_eq!(cfg.get_nodes().len(), 1);
-        // let ndk = NodeKind::Assignment(
-        //     Box::new(Expr::Id(String::from("a"))),
-        //     Box::new(Expr::Int(42)),
-        // );
-        // let want = Node::new(ndk);
         let want = make_ass_node_lit("a", 42);
-        assert_eq!(cfg.get_nodes().get(0), Some(&want));
+        let got = cfg.get_nodes().get(0).unwrap().get_node_kind().clone();
+        assert_eq!(Some(got), Some(want));
     }
     #[test]
     fn flatten_simple_example1() {
@@ -69,35 +59,24 @@ mod tests {
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
-        let got = ControlFlowGraph::from(&prog);
+        let mut cfg = ControlFlowGraph::from(&prog);
+        let got = cfg.get_nodes();
         let want_vec = vec![
-            Node::new(NodeKind::Assignment(
-                Box::new(Expr::Id("a".to_string())),
-                Box::new(Expr::Int(2)),
-            )),
-            Node::new(NodeKind::Assignment(
-                Box::new(Expr::Id("b".to_string())),
-                Box::new(Expr::Int(3)),
-            )),
-            Node::new(NodeKind::Return(Box::new(Expr::Id("a".to_string())))),
+            make_ass_node_lit("a", 2),
+            make_ass_node_lit("b", 3),
+            make_return(Expr::Id(String::from("a"))),
         ];
         assert_eq!(
-            got.get_nodes().get(0),
-            Some(&want_vec[0]),
-            "Got: {:?}\n\n",
-            got
+            Some(got.get(0).unwrap().get_node_kind()),
+            Some(&want_vec[0])
         );
         assert_eq!(
-            got.get_nodes().get(1),
-            Some(&want_vec[1]),
-            "Got: {:?}\n\n",
-            got
+            Some(got.get(1).unwrap().get_node_kind()),
+            Some(&want_vec[1])
         );
         assert_eq!(
-            got.get_nodes().get(2),
-            Some(&want_vec[2]),
-            "Got: {:?}\n\n",
-            got
+            Some(got.get(2).unwrap().get_node_kind()),
+            Some(&want_vec[2])
         );
     }
     #[test]
@@ -121,40 +100,55 @@ mod tests {
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
-        let cfg = ControlFlowGraph::from(&prog);
+        let mut cfg = ControlFlowGraph::from(&prog);
         let got = cfg.get_nodes();
         let want_vec = vec![
             make_ass_node_lit("i", 0),
-            Node::new(NodeKind::Condition(Box::new(Expr::BinOp(
+            NodeKind::Condition(Box::new(Expr::BinOp(
                 Box::new(Expr::Id("i".to_string())),
                 Operator::LessThan,
                 Box::new(Expr::Int(3)),
-            )))),
+            ))),
             make_ass_node_exp("i", make_inc("i")),
-            Node::new(NodeKind::Assignment(
+            NodeKind::Assignment(
                 Box::new(Expr::Id("i".to_string())),
                 Box::new(Expr::BinOp(
                     Box::new(Expr::Id("i".to_string())),
                     Operator::Plus,
                     Box::new(Expr::Id("i".to_string())),
                 )),
-            )),
-            Node::new(NodeKind::Assignment(
+            ),
+            NodeKind::Assignment(
                 Box::new(Expr::Id("i".to_string())),
                 Box::new(Expr::BinOp(
                     Box::new(Expr::Id("i".to_string())),
                     Operator::Mult,
                     Box::new(Expr::Id("i".to_string())),
                 )),
-            )),
-            Node::new(NodeKind::Return(Box::new(Expr::Id("a".to_string())))),
+            ),
+            NodeKind::Return(Box::new(Expr::Id("a".to_string()))),
         ];
         assert_eq!(got.len(), 5);
-        assert_eq!(got.get(0), Some(&want_vec[0]));
-        assert_eq!(got.get(1), Some(&want_vec[1]));
-        assert_eq!(got.get(2), Some(&want_vec[2]));
-        assert_eq!(got.get(3), Some(&want_vec[3]));
-        assert_eq!(got.get(4), Some(&want_vec[4]));
+        assert_eq!(
+            Some(got.get(0).unwrap().get_node_kind()),
+            Some(&want_vec[0])
+        );
+        assert_eq!(
+            Some(got.get(1).unwrap().get_node_kind()),
+            Some(&want_vec[1])
+        );
+        assert_eq!(
+            Some(got.get(2).unwrap().get_node_kind()),
+            Some(&want_vec[2])
+        );
+        assert_eq!(
+            Some(got.get(3).unwrap().get_node_kind()),
+            Some(&want_vec[3])
+        );
+        assert_eq!(
+            Some(got.get(4).unwrap().get_node_kind()),
+            Some(&want_vec[4])
+        );
     }
     #[test]
     fn flatten_do_while() {
@@ -171,55 +165,84 @@ mod tests {
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
-        let got = ControlFlowGraph::from(&prog);
+        let cfg = ControlFlowGraph::from(&prog);
+        let got = cfg.get_nodes();
         let want_vec = vec![
             make_ass_node_lit("i", 0),
             make_ass_node_exp("i", make_inc("i")),
             make_ass_node_exp("i", make_inc("i")),
-            Node::new(NodeKind::Condition(Box::new(Expr::BinOp(
+            NodeKind::Condition(Box::new(Expr::BinOp(
                 Box::new(Expr::Id("i".to_string())),
                 Operator::LessThan,
                 Box::new(Expr::Int(9)),
-            )))),
+            ))),
             make_return(Expr::Id("i".to_string())),
         ];
-        println!("got: {}", got);
         assert_eq!(
-            got.get_nodes().get(0),
-            Some(&want_vec[0]),
-            "Got: {:?}, want {:?}",
-            got,
-            want_vec
+            Some(got.get(0).unwrap().get_node_kind()),
+            Some(&want_vec[0])
         );
         assert_eq!(
-            got.get_nodes().get(1),
-            Some(&want_vec[1]),
-            "Got: {:?}, want {:?}",
-            got,
-            want_vec
+            Some(got.get(1).unwrap().get_node_kind()),
+            Some(&want_vec[1])
         );
         assert_eq!(
-            got.get_nodes().get(2),
-            Some(&want_vec[2]),
-            "Got: {:?}, want {:?}",
-            got,
-            want_vec
+            Some(got.get(2).unwrap().get_node_kind()),
+            Some(&want_vec[2])
         );
         assert_eq!(
-            got.get_nodes().get(3),
-            Some(&want_vec[3]),
-            "Got: {:?}, want {:?}",
-            got,
-            want_vec
+            Some(got.get(3).unwrap().get_node_kind()),
+            Some(&want_vec[3])
         );
         assert_eq!(
-            got.get_nodes().get(4),
-            Some(&want_vec[4]),
-            "Got: {:?}, want {:?}",
-            got,
-            want_vec
+            Some(got.get(4).unwrap().get_node_kind()),
+            Some(&want_vec[4])
         );
-
-        //
     }
+
+    // Use and Def tests
+    #[test]
+    fn node_single_def_and_empty_use() {
+        let s = "a = 42;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let got1_def = cfg.get_node(0).get_defs();
+        let got1_use = cfg.get_node(0).get_uses();
+        assert!(got1_def.contains("a"));
+        assert!(got1_use.is_empty())
+    }
+    #[test]
+    fn node_two_def_and_use() {
+        let s = "b = 41;a = b + 1;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let got_def = cfg.get_node(1).get_defs();
+        let got_use = cfg.get_node(1).get_uses();
+        assert!(got_def.contains("a"));
+        assert!(got_use.contains("b"));
+    }
+    // succ and pred tests
+    #[test]
+    fn succ_three_ass() {
+        let s = "a = 41;
+             b = 1;
+             x = a;
+             ";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let got_def = cfg.get_node(1).get_defs();
+        let got_use = cfg.get_node(1).get_uses();
+        assert!(got_def.contains("a"));
+        assert!(got_use.contains("a"));
+    }
+    // in and out tests
 }
