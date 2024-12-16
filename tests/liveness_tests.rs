@@ -1,8 +1,8 @@
 use live_crab::ast::*;
 use live_crab::lexer::Lexer;
-use live_crab::lexer::Token;
+// use live_crab::lexer::Token;
 use live_crab::liveness::ControlFlowGraph;
-use live_crab::liveness::{Node, NodeKind};
+use live_crab::liveness::NodeKind;
 use live_crab::parser::Parser;
 
 fn get_str_from_path(path: &str) -> Option<String> {
@@ -32,6 +32,11 @@ fn make_inc(id: &str) -> Expr {
 fn make_return(e: Expr) -> NodeKind {
     NodeKind::Return(Box::new(e))
 }
+fn debug_nodes(cfg: ControlFlowGraph) {
+    for (idx, n) in cfg.get_nodes().iter().enumerate() {
+        println!("Node {idx}: {:?}\n", n)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -59,7 +64,7 @@ mod tests {
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
-        let mut cfg = ControlFlowGraph::from(&prog);
+        let cfg = ControlFlowGraph::from(&prog);
         let got = cfg.get_nodes();
         let want_vec = vec![
             make_ass_node_lit("a", 2),
@@ -100,7 +105,7 @@ mod tests {
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
-        let mut cfg = ControlFlowGraph::from(&prog);
+        let cfg = ControlFlowGraph::from(&prog);
         let got = cfg.get_nodes();
         let want_vec = vec![
             make_ass_node_lit("i", 0),
@@ -227,7 +232,8 @@ mod tests {
         assert!(got_def.contains("a"));
         assert!(got_use.contains("b"));
     }
-    // succ and pred tests
+    // succ and pred tests - positive
+    // SUCC
     #[test]
     fn succ_three_ass() {
         let s = "a = 41;
@@ -273,6 +279,104 @@ mod tests {
         assert!(got4, "Node 3 (cond) not branch conditionally, false ");
         assert!(got5, "Node 4 did have a successor");
     }
+    #[test]
+    fn succ_while() {
+        let s = "a = 901;
+        while ( a < 4 ) {
+            a = a+2;
+            a = a-1;
+        } 
+        return a;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let cond_branch_true = cfg.get_node(1).get_succs().contains(&2);
+        let cond_branch_false = cfg.get_node(1).get_succs().contains(&4);
+        assert!(cond_branch_true, "Cond did not branch to body");
+        assert!(cond_branch_false, "Cond did not branch to after the body");
+    }
+    #[test]
+    fn succ_if() {
+        let s = "i = 0;
+        if ( a < 1337 ) {
+            a = a+1;
+            a = 2+1;
+            a = a*2;
+        }
+        return a;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        // ------------------------------
+        // node 0: assignment
+        // node 1: cond (expr) - If
+        // node 2: body (assignment)
+        // node 3: body (assignment)
+        // node 4: body (assignment)
+        // node 5: return
+        // ------------------------------
+        let cond_is_after_initial = cfg.get_node(0).get_succs().contains(&1);
+        let cond_branch_true = cfg.get_node(1).get_succs().contains(&2);
+        let cond_branch_false = cfg.get_node(1).get_succs().contains(&5);
+        let last_body_branch_to_rest = cfg.get_node(4).get_succs().contains(&5);
+        let return_is_empty = cfg.get_node(5).get_succs().is_empty();
+        assert!(
+            cond_is_after_initial,
+            "Node 0 did not continue to the condition (if)"
+        );
+        assert!(cond_branch_true, "Cond did not branch to body");
+        assert!(cond_branch_false, "Cond did not branch to after the body");
+        assert!(
+            last_body_branch_to_rest,
+            "Last node in body did not continue"
+        );
+        assert!(return_is_empty, "Last statment did have a successor");
+    }
+
+    // Pred test
+    #[test]
+    fn pred_if() {
+        let s = "i = 0;
+        if ( a < 1337 ) {
+            a = a+1;
+            a = 2+1;
+            a = a*2;
+        }
+        return a;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        // ------------------------------
+        // node 0: assignment
+        // node 1: cond (expr) - If
+        // node 2: body (assignment)
+        // node 3: body (assignment)
+        // node 4: body (assignment)
+        // node 5: return
+        // ------------------------------
+        let no_pred_to_entry = cfg.get_node(0).get_preds().is_empty();
+        let entry_to_cond = cfg.get_node(1).get_preds().contains(&0);
+        let return_has_cond_preds = cfg.get_node(5).get_preds().contains(&1);
+        let return_has_body_preds = cfg.get_node(5).get_preds().contains(&4);
+        debug_nodes(cfg);
+        assert!(no_pred_to_entry, "There was pred to the entry");
+        assert!(entry_to_cond, "The entry was not a pred to the cond");
+        assert!(
+            return_has_cond_preds,
+            "The false branch was not a pred to return"
+        );
+        assert!(
+            return_has_body_preds,
+            "The true branch (last node in the body) was not a pred to return"
+        );
+    }
+
     // !TODO Verify this test, i was going out of my mind
     #[test]
     fn pred_do_while() {

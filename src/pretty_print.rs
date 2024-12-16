@@ -1,6 +1,5 @@
 use crate::ast::*;
 use crate::liveness::*;
-use crate::parser::*;
 use std::fmt::Display;
 
 impl Program {

@@ -1,6 +1,6 @@
 use live_crab::ast::*;
 use live_crab::lexer::Lexer;
-use live_crab::lexer::Token;
+// use live_crab::lexer::Token;
 use live_crab::parser::Parser;
 
 fn get_str_from_path(path: &str) -> Option<String> {

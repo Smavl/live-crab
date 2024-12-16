@@ -43,18 +43,32 @@ impl FlattenerState {
     }
 
     fn add_node(&mut self, mut node: Node) {
-        if 0 < self.get_offset() && node.get_preds().is_empty() {
-            node.add_pred(self.get_offset() - 1);
-        }
-
+        let cur_off = self.get_offset();
+        // if the the node has no succs and is not a return statements
         if node.get_succs().is_empty() {
             if let NodeKind::Return(_) = node.get_node_kind() {
             } else {
+                // add the next node ass a succ
                 node.add_succ(self.get_offset() + 1);
             }
         }
 
+        for ele in node.get_succs() {
+            if let Some(_) = self.nodes.get(*ele) {
+                self.nodes[*ele].add_pred(cur_off);
+            }
+        }
+
+        // If the node is a succ to any node,
+        // and add it to the node pred set
+        for (idx, n) in self.nodes.iter().enumerate() {
+            if n.get_succs().contains(&cur_off) {
+                node.add_pred(idx);
+            }
+        }
+
         self.nodes.push(node);
+        self.inc_offset();
     }
 
     fn get_offset(&self) -> usize {
@@ -80,15 +94,13 @@ fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
     for stmt in stmts {
         match stmt {
             a @ Statement::Assignment(_, _) => {
-                let mut node = handle_assignment(a);
+                let node = handle_assignment(a);
 
                 state.add_node(node);
-                state.inc_offset();
             }
             r @ Statement::Return(_) => {
-                let mut node = handle_return(r);
+                let node = handle_return(r);
                 state.add_node(node);
-                state.inc_offset();
             }
             Statement::If(cond, body) => {
                 let body_start = state.get_offset() + 1;
@@ -106,42 +118,55 @@ fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
                 cond_node.add_succ(body_start + body_end);
 
                 state.add_node(cond_node);
-                state.inc_offset();
 
                 for bn in body_flat_state.nodes {
                     state.add_node(bn);
-                    state.inc_offset();
                 }
             }
             Statement::DoWhile(body, cond) => {
                 let body_start = state.get_offset();
+
                 let mut body_flat_state = FlattenerState::new();
                 body_flat_state.current_offset = body_start;
-
                 flatten_statements(&mut body_flat_state, body.iter().collect());
+
                 let body_end = body_start + body_flat_state.nodes.len();
 
                 for bn in body_flat_state.nodes {
                     state.add_node(bn);
-                    state.inc_offset();
                 }
 
                 let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
 
-                let cond_node_offset = state.get_offset();
                 // Cond node goes to start of loop if true
                 cond_node.add_succ(body_start);
-                state.nodes[body_start].add_pred(cond_node_offset);
-                // Cond node goes to next node if false
+                // Cond node next node if false
                 cond_node.add_succ(body_end + 1);
 
-                // cond_node.set_succ(vec![body_start - 1, body_end + 1]);
+                state.add_node(cond_node);
+            }
+            Statement::While(cond, body) => {
+                // Handle body
+                let mut body_flat_state = FlattenerState::new();
+                let body_start = state.get_offset() + 1;
+                body_flat_state.current_offset = body_start; // feed offset to body
 
-                cond_node.add_pred(state.get_offset() - 1);
+                flatten_statements(&mut body_flat_state, body.iter().collect());
+                let body_len = body_flat_state.nodes.len();
+
+                // init cond node and modify
+                let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
+                cond_node.add_succ(body_start);
+                cond_node.add_succ(body_start + body_len);
 
                 state.add_node(cond_node);
-                state.inc_offset();
+
+                // add nodes from body to the this state
+                for bn in body_flat_state.nodes {
+                    state.add_node(bn);
+                }
             }
+            // this is merely keep error recovery when additions are made
             _ => panic!("Not implemented yet"),
         }
     }
@@ -196,6 +221,8 @@ impl Node {
     pub fn new(node_kind: NodeKind) -> Self {
         Node {
             node_kind,
+            // According to the compiler book, the sets below
+            // should stored in the CFG to improve modulatity
             use_set: HashSet::new(),
             def_set: HashSet::new(),
             pred: HashSet::new(),
@@ -225,7 +252,11 @@ impl Node {
     }
 
     pub fn add_pred(&mut self, n: usize) {
-        self.pred.insert(n);
+        if self.pred.insert(n) {
+            // n was not in the set
+        } else {
+            // println!("The pred {n} was already in the set")
+        }
     }
     pub fn add_succ(&mut self, n: usize) {
         self.succ.insert(n);
