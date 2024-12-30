@@ -22,7 +22,6 @@ mod tests {
             Box::new(Expr::Int(42)),
         )];
         let want = Program::new(want_vec);
-        println!("Got: {:?}\n\n", got);
         assert_eq!(got, want, "Got: {:?}\n\n", got);
     }
     #[test]
@@ -37,7 +36,6 @@ mod tests {
             Box::new(create_binop_lit(68, Operator::Plus, 1)),
         )];
         let want = Program::new(want_vec);
-        println!("Got: {:?}\n\n", got);
         assert_eq!(got, want, "Got: {:?}\n\n", got);
     }
     #[test]
@@ -56,7 +54,6 @@ mod tests {
             )),
         )];
         let want = Program::new(want_vec);
-        println!("Got: {:?}\n\n", got);
         assert_eq!(got, want, "Got: {:?}\n\n", got);
     }
     #[test]
@@ -158,7 +155,6 @@ mod tests {
             ),
             Statement::Return(Box::new(Expr::Id("i".to_string()))),
         ];
-        // println!("Want: {:?}", want_vec);
         let want = Program::new(want_vec);
         assert_eq!(got, want, "Got: {:?}\n\n", got);
     }

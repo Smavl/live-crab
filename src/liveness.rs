@@ -24,7 +24,7 @@ impl ControlFlowGraph {
         if let Some(n) = self.nodes.get(n) {
             n
         } else {
-            panic!("That node Could not be found")
+            panic!("That node could not be found")
         }
     }
 }
@@ -44,7 +44,7 @@ impl FlattenerState {
 
     fn add_node(&mut self, mut node: Node) {
         let cur_off = self.get_offset();
-        // if the the node has no succs and is not a return statements
+        // If the the node has no succs and is not a return statements
         if node.get_succs().is_empty() {
             if let NodeKind::Return(_) = node.get_node_kind() {
             } else {
@@ -53,18 +53,26 @@ impl FlattenerState {
             }
         }
 
-        for ele in node.get_succs() {
-            if let Some(_) = self.nodes.get(*ele) {
-                self.nodes[*ele].add_pred(cur_off);
+        for idx in node.get_succs() {
+            if let Some(_) = self.nodes.get(*idx) {
+                self.nodes[*idx].add_pred(cur_off);
             }
         }
 
         // If the node is a succ to any node,
         // and add it to the node's pred set
-        for (idx, n) in self.nodes.iter().enumerate() {
+        for n in self.nodes.iter() {
             if n.get_succs().contains(&cur_off) {
-                node.add_pred(idx);
+                node.add_pred(n.get_node_idx());
             }
+        }
+
+        // TODO: Extract this to a "handle_use()"-function
+        if let NodeKind::Condition(e) = node.get_node_kind() {
+            node.use_extend(e.clone().iter().collect::<HashSet<String>>());
+        }
+        if let NodeKind::Return(e) = node.get_node_kind() {
+            node.use_extend(e.clone().iter().collect::<HashSet<String>>());
         }
 
         self.nodes.push(node);
@@ -94,18 +102,18 @@ fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
     for stmt in stmts {
         match stmt {
             a @ Statement::Assignment(_, _) => {
-                let node = handle_assignment(a);
+                let node = handle_assignment(state.get_offset(),a);
 
                 state.add_node(node);
             }
             r @ Statement::Return(_) => {
-                let node = handle_return(r);
+                let node = handle_return(state.get_offset(), r);
                 state.add_node(node);
             }
             Statement::If(cond, body) => {
                 let body_start = state.get_offset() + 1;
 
-                let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
+                let mut cond_node = Node::new(state.get_offset(),NodeKind::Condition(cond.clone()));
 
                 let mut body_flat_state = FlattenerState::new();
 
@@ -136,7 +144,7 @@ fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
                     state.add_node(bn);
                 }
 
-                let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
+                let mut cond_node = Node::new(body_end,NodeKind::Condition(cond.clone()));
 
                 // Cond node goes to start of loop if true
                 cond_node.add_succ(body_start);
@@ -155,7 +163,7 @@ fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
                 let body_len = body_flat_state.nodes.len();
 
                 // init cond node and modify
-                let mut cond_node = Node::new(NodeKind::Condition(cond.clone()));
+                let mut cond_node = Node::new(state.get_offset(), NodeKind::Condition(cond.clone()));
                 cond_node.add_succ(body_start);
                 cond_node.add_succ(body_start + body_len);
 
@@ -171,13 +179,13 @@ fn flatten_statements(state: &mut FlattenerState, stmts: Vec<&Statement>) {
         }
     }
 }
-fn handle_assignment(stmt: &Statement) -> Node {
+fn handle_assignment(idx: usize,stmt: &Statement) -> Node {
     match stmt {
         Statement::Assignment(lvl, e) => {
             let lval = lvl.clone();
             let exp = e.clone();
 
-            let mut node = Node::new(NodeKind::from((lval, exp)));
+            let mut node = Node::new(idx,NodeKind::from((lval, exp)));
 
             // add the lvl to the def set
             if let Expr::Id(id) = *lvl.clone() {
@@ -190,9 +198,11 @@ fn handle_assignment(stmt: &Statement) -> Node {
         _ => panic!("Death"),
     }
 }
-fn handle_return(stmt: &Statement) -> Node {
+fn handle_return(idx: usize, stmt: &Statement) -> Node {
     match stmt {
-        Statement::Return(e) => Node::new(NodeKind::from(e.clone())),
+        Statement::Return(e) => {
+            Node::new(idx,NodeKind::from(e.clone()))
+        }
         _ => panic!("Death"),
     }
 }
@@ -210,6 +220,7 @@ pub fn get_ids_from_expr(e: Box<Expr>) -> Vec<String> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Node {
+    idx : usize,
     node_kind: NodeKind,
     use_set: HashSet<String>,
     def_set: HashSet<String>,
@@ -218,8 +229,9 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(node_kind: NodeKind) -> Self {
+    pub fn new(idx: usize, node_kind: NodeKind) -> Self {
         Node {
+            idx,
             node_kind,
             // According to the compiler book, the sets below
             // should stored in the CFG to improve modulatity
@@ -228,6 +240,10 @@ impl Node {
             pred: HashSet::new(),
             succ: HashSet::new(),
         }
+    }
+
+    pub fn get_node_idx(&self) -> usize {
+        self.idx
     }
 
     pub fn get_node_kind(&self) -> &NodeKind {

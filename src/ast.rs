@@ -34,7 +34,6 @@ pub struct ExprIdIterator {
 }
 
 // Implementations
-
 impl Program {
     pub fn new(stmts: Vec<Statement>) -> Self {
         Program { stmts }

@@ -8,6 +8,8 @@ mod test_utils;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
     use test_utils::*;
 
@@ -200,6 +202,33 @@ mod tests {
         assert!(got_def.contains("a"));
         assert!(got_use.contains("b"));
     }
+    // if and return 
+    #[test]
+    fn use_if_cond() {
+        let s = "a = 42; if ( a < 24 ) {a = 69;}";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let got_def = cfg.get_node(1).get_defs();
+        let got_use = cfg.get_node(1).get_uses();
+        assert!(got_def.is_empty(), "{:?}", cfg.get_node(1));
+        assert!(got_use.contains("a"), "{:?}", cfg.get_node(1));
+    }
+    #[test]
+    fn use_return() {
+        let s = "a = 42; return a;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        let got_def = cfg.get_node(1).get_defs();
+        let got_use = cfg.get_node(1).get_uses();
+        assert!(got_def.is_empty(), "{:?}", cfg.get_node(1));
+        assert!(got_use.contains("a"), "{:?}", cfg.get_node(1));
+    }
     // succ and pred tests - positive
     // SUCC
     #[test]
@@ -218,7 +247,7 @@ mod tests {
         let got3 = cfg.get_node(2).get_succs().is_empty();
         assert!(got1, "Node 1 did not succede Node 0");
         assert!(got2, "Node 2 did not succede Node 1");
-        assert!(got3, "Node 3 did succede have a successor");
+        assert!(got3, "Node 3 did have a successor");
     }
     // TODO: Verify this test, i was going out of my mind
     #[test]
@@ -369,6 +398,95 @@ mod tests {
         assert!(got3, "Node 2 did not loop back to the body");
         assert!(got4, "Node 1 did not continue to the cond");
         assert!(got5, "Node 2 did not continue to the return");
+    }
+    #[test]
+    fn pred_book_ex() {
+        let s = get_str_from_path("examples/book_ex").unwrap();
+        let lexer = Lexer::new(&s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        //This is how it should be:
+        //0: a = 0;
+        //	pred: {}
+        //1: b = a + 1;
+        //	pred: {0, 4}
+        //2: c = c + 1;
+        //	pred: {1}
+        //3: a = b * 2;
+        //	pred: {2}
+        //4: if a < 9
+        //	pred: {3}
+        //5: return c;
+        //	pred: {4}
+        // FIX: detemine the def and/or use set for non-assignments
+
+        fn check_pred(cfg: &ControlFlowGraph, node_idx: usize, size: usize, wanted_vec: Vec<usize>) {
+            assert_eq!(cfg.get_node(node_idx).get_preds().len(), size, "It was excepted to have size {size}");
+            assert_eq!(wanted_vec.len(), size, "Dev error!");
+            for wanted in wanted_vec {
+                assert!(cfg.get_node(node_idx).get_preds().contains(&wanted), "Node {wanted} was not a pred to Node {node_idx}" );
+            }
+        }
+
+        // Node 0:
+        assert_eq!(cfg.get_node(0).get_preds().len(), 0, "Node 0 was not empty");
+        check_pred(&cfg, 0, 0, vec![]);
+        // Node 1:
+        check_pred(&cfg, 1, 2, vec![0,4]);
+        // Node 2:
+        check_pred(&cfg, 2, 1, vec![1]);
+        // Node 3:
+        check_pred(&cfg, 3, 1, vec![2]);
+        // Node 4:
+        check_pred(&cfg, 4, 1, vec![3]);
+        // Node 5:
+        check_pred(&cfg, 5, 1, vec![4]);
+    }
+    #[test]
+    fn succ_book_ex() {
+        let s = get_str_from_path("examples/book_ex").unwrap();
+        let lexer = Lexer::new(&s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        //This is how it should be:
+        //0: a = 0;
+        //	succ: {1}
+        //1: b = a + 1;
+        //	succ: {2}
+        //2: c = c + 1;
+        //	succ: {3}
+        //3: a = b * 2;
+        //	succ: {4}
+        //4: if a < 9
+        //	succ: {1, 5}
+        //5: return c;
+        //	succ: {}
+        // FIX: detemine the def and/or use set for non-assignments
+
+        fn check_succ(cfg: &ControlFlowGraph, node_idx: usize, size: usize, wanted_vec: Vec<usize>) {
+            assert_eq!(wanted_vec.len(), size, "Dev error!");
+            assert_eq!(cfg.get_node(node_idx).get_succs().len(), size, "It was excepted to have size {size}");
+            for wanted in wanted_vec {
+                assert!(cfg.get_node(node_idx).get_succs().contains(&wanted), "Node {wanted} was not a succ to Node {node_idx}" );
+            }
+        }
+
+        // Node 0:
+        check_succ(&cfg, 0, 1, vec![1]);
+        // Node 1:
+        check_succ(&cfg, 1, 1, vec![2]);
+        // Node 2:
+        check_succ(&cfg, 2, 1, vec![3]);
+        // Node 3:
+        check_succ(&cfg, 3, 1, vec![4]);
+        // Node 4:
+        check_succ(&cfg, 4, 2, vec![1,5]);
+        // Node 5:
+        check_succ(&cfg, 5, 0, vec![]);
     }
     // in and out tests
 }

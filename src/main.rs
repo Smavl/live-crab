@@ -3,19 +3,18 @@ use live_crab::liveness::*;
 use live_crab::parser::Parser;
 use std::io;
 
+pub fn get_str_from_path(path: &str) -> Option<String> {
+    std::fs::read_to_string(path).ok()
+}
+
 fn main() -> io::Result<()> {
-    let s = "a = 42;";
-    let lexer = Lexer::new(s);
+    let s = get_str_from_path("examples/book_ex").unwrap();
+    let lexer = Lexer::new(&s);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
     let prog = parser.parse();
     let cfg = ControlFlowGraph::from(&prog);
-    let got1_def = cfg.get_node(0).get_defs();
-    let got1_use = cfg.get_node(0).get_uses();
-    assert!(got1_def.contains("a"));
-    assert!(got1_use.is_empty());
-    println!("{:?}", got1_use);
-    println!("{:?}", got1_def);
+    println!("Cfg:\n{}",cfg);
 
     Ok(())
 }

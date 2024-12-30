@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::liveness::*;
+use std::fmt::format;
 use std::fmt::Display;
 
 impl Program {
@@ -86,18 +87,28 @@ impl Display for ControlFlowGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut res = String::new();
 
-        for n in self.get_nodes().iter() {
-            match n.get_node_kind() {
-                NodeKind::Return(e) => {
-                    res.push_str(&format!("return {};\n", e));
+        for (idx, n) in self.get_nodes().iter().enumerate() {
+            match (idx, n.get_node_kind()) {
+                (_, NodeKind::Return(e)) => {
+                    res.push_str(&format!("{idx}: return {};\n", e));
                 }
-                NodeKind::Assignment(lvl, e) => {
-                    res.push_str(&format!("{} = {};\n", lvl, e));
+                (_,NodeKind::Assignment(lvl, e)) => {
+                    res.push_str(&format!("{idx}: {} = {};\n", lvl, e,));
                 }
-                NodeKind::Condition(e) => {
-                    res.push_str(&format!("if {}\n", e));
+                (_,NodeKind::Condition(e)) => {
+                    res.push_str(&format!("{idx}: if {}\n", e));
                 }
             }
+            res.push_str(
+                &format!("\tdef: {:?}, use: {:?}\n",
+                    n.get_defs(),
+                    n.get_uses()
+                ));
+            res.push_str(
+                &format!("\tpred: {:?}, succ: {:?}\n",
+                    n.get_preds(),
+                    n.get_succs()
+                ));
         }
         write!(f, "{}", res)
     }

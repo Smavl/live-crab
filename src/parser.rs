@@ -24,10 +24,8 @@ impl Parser {
     fn get_statements(&mut self) -> Vec<Statement> {
         let mut stmts = Vec::new();
         while let Some(e) = self.next_statement() {
-            // println!("Statement from loop: {:?}", e);
             stmts.push(e);
         }
-        // println!("Statements from get_statements: {:?}", stmts);
         stmts
     }
     pub fn next_statement(&mut self) -> Option<Statement> {
@@ -46,7 +44,6 @@ impl Parser {
     }
 
     fn eat_keyword(&mut self, kw: String) -> Option<Statement> {
-        // println!("Eating keyword: {}", kw);
         self.consume(Token::Keyword(kw.to_string()));
         match kw.as_str() {
             "return" => {
@@ -90,11 +87,10 @@ impl Parser {
     fn eat_assignment(&mut self) -> Option<Statement> {
         let id = match self.peek() {
             Some(Token::Id(id)) => {
-                // println!("id: {}", id);
                 id.clone()
             }
             e => {
-                // println!("got: {:?}", e);
+                 println!("got: {:?}", e);
                 panic!("Was not an id")
             }
         };
@@ -151,7 +147,6 @@ impl Parser {
     }
 
     fn consume(&mut self, tk: Token) {
-        // println!("Consuming: {:?}", tk);
         if Some(&tk) == self.peek() {
             self.current += 1;
         } else {
