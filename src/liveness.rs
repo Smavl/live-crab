@@ -60,7 +60,7 @@ impl FlattenerState {
         }
 
         // If the node is a succ to any node,
-        // and add it to the node pred set
+        // and add it to the node's pred set
         for (idx, n) in self.nodes.iter().enumerate() {
             if n.get_succs().contains(&cur_off) {
                 node.add_pred(idx);
@@ -252,11 +252,7 @@ impl Node {
     }
 
     pub fn add_pred(&mut self, n: usize) {
-        if self.pred.insert(n) {
-            // n was not in the set
-        } else {
-            // println!("The pred {n} was already in the set")
-        }
+        self.pred.insert(n);
     }
     pub fn add_succ(&mut self, n: usize) {
         self.succ.insert(n);

@@ -1,46 +1,15 @@
 use live_crab::ast::*;
 use live_crab::lexer::Lexer;
-// use live_crab::lexer::Token;
 use live_crab::liveness::ControlFlowGraph;
 use live_crab::liveness::NodeKind;
 use live_crab::parser::Parser;
 
-fn get_str_from_path(path: &str) -> Option<String> {
-    std::fs::read_to_string(path).ok()
-}
-
-// helper function to wrap statements in a Node
-// fn wrap_in_node(s: Statement) -> Node {
-//     Node::new(s)
-// }
-//
-// helper function to wrap expressions in a Node
-fn make_ass_node_lit(id: &str, lit: i32) -> NodeKind {
-    NodeKind::Assignment(Box::new(Expr::Id(id.to_string())), Box::new(Expr::Int(lit)))
-}
-fn make_ass_node_exp(id: &str, exp: Expr) -> NodeKind {
-    NodeKind::Assignment(Box::new(Expr::Id(id.to_string())), Box::new(exp))
-}
-fn make_inc(id: &str) -> Expr {
-    Expr::BinOp(
-        Box::new(Expr::Id(id.to_string())),
-        Operator::Plus,
-        Box::new(Expr::Int(1)),
-    )
-}
-
-fn make_return(e: Expr) -> NodeKind {
-    NodeKind::Return(Box::new(e))
-}
-fn debug_nodes(cfg: ControlFlowGraph) {
-    for (idx, n) in cfg.get_nodes().iter().enumerate() {
-        println!("Node {idx}: {:?}\n", n)
-    }
-}
+mod test_utils;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_utils::*;
 
     // flatten tests
     #[test]
@@ -100,7 +69,6 @@ mod tests {
           i = i + i;
           i = i * i;
          }";
-        // let file = get_str_from_path("examples/do_while").unwrap();
         let lexer = Lexer::new(file);
         let tokens = lexer.tokenize();
         let mut parser = Parser::new(tokens);
@@ -217,7 +185,7 @@ mod tests {
         let got1_def = cfg.get_node(0).get_defs();
         let got1_use = cfg.get_node(0).get_uses();
         assert!(got1_def.contains("a"));
-        assert!(got1_use.is_empty())
+        assert!(got1_use.is_empty());
     }
     #[test]
     fn node_two_def_and_use() {
@@ -252,7 +220,7 @@ mod tests {
         assert!(got2, "Node 2 did not succede Node 1");
         assert!(got3, "Node 3 did succede have a successor");
     }
-    // !TODO Verify this test, i was going out of my mind
+    // TODO: Verify this test, i was going out of my mind
     #[test]
     fn succ_do_while() {
         let s = "a = 41;do {a = a+1;} while( a < 42 ); return a;";
@@ -377,7 +345,7 @@ mod tests {
         );
     }
 
-    // !TODO Verify this test, i was going out of my mind
+    // TODO: Verify this test, i was going out of my mind
     #[test]
     fn pred_do_while() {
         let s = "a = 41;do {a = a+1;} while( a < 42 ); return a;";
@@ -395,9 +363,7 @@ mod tests {
         let got3 = cfg.get_node(1).get_preds().contains(&2);
         let got4 = cfg.get_node(2).get_preds().contains(&1);
         let got5 = cfg.get_node(3).get_preds().contains(&2);
-        for (idx, n) in cfg.get_nodes().iter().enumerate() {
-            println!("Node {idx}: {:?}\n", n)
-        }
+        debug_nodes(cfg);
         assert!(got1, "Node 0 was not empty");
         assert!(got2, "Node 0 did not continue to the body");
         assert!(got3, "Node 2 did not loop back to the body");

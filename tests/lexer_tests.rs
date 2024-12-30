@@ -1,16 +1,13 @@
 use live_crab::lexer::Lexer;
 use live_crab::lexer::Token;
 
-fn get_str_from_path(path: &str) -> Option<String> {
-    // let cwd = env::current_dir().unwrap();
-    // println!("Current working directory: {}", cwd.display());
-    // panic!("Current working directory: {}", cwd.display());
-    std::fs::read_to_string(path).ok()
-}
+mod test_utils;
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_utils::*;
 
     // advance tests
     #[test]

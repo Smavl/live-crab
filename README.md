@@ -32,6 +32,21 @@ pub enum Statement {
 }
 ```
 
+And an Expr is a expression of the following variants:
+
+```rust
+pub enum Expr {
+    Id(String),
+    Int(i32),
+    BinOp(Box<Expr>, Operator, Box<Expr>),
+}
+```
+
+```rust
+pub enum Operator {Plus,Minus,Mult,Div,Mod,LessThan}
+```
+
+
 As of now, the parse is the dictator. If the parser is happy, it is a valid program.
 
 # Roadmap

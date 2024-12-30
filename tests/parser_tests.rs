@@ -1,28 +1,13 @@
 use live_crab::ast::*;
 use live_crab::lexer::Lexer;
-// use live_crab::lexer::Token;
 use live_crab::parser::Parser;
 
-fn get_str_from_path(path: &str) -> Option<String> {
-    std::fs::read_to_string(path).ok()
-}
-
-// fn create_binop(left: Expr, op: Operator, right: Expr) -> Expr {
-//     Expr::BinOp(Box::new(left), op, Box::new(right))
-// }
-// fn create_binop_llit(left: i32, op: Operator, right: Expr) -> Expr {
-//     Expr::BinOp(Box::new(Expr::Int(left)), op, Box::new(right))
-// }
-fn create_binop_rlit(left: Expr, op: Operator, right: i32) -> Expr {
-    Expr::BinOp(Box::new(left), op, Box::new(Expr::Int(right)))
-}
-fn create_binop_lit(left: i32, op: Operator, right: i32) -> Expr {
-    Expr::BinOp(Box::new(Expr::Int(left)), op, Box::new(Expr::Int(right)))
-}
+mod test_utils;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_utils::*;
 
     #[test]
     fn parse_simple_assignment() {
