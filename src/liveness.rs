@@ -1,16 +1,22 @@
 use crate::ast::*;
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::format};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ControlFlowGraph {
     nodes: Vec<Node>,
     live_in: Vec<HashSet<String>>,
     live_out: Vec<HashSet<String>>,
+    live_ranges_found: bool,
 }
 
 impl ControlFlowGraph {
     pub fn new() -> Self {
-        ControlFlowGraph { nodes: Vec::new(), live_in: Vec::new(), live_out: Vec::new()}
+        ControlFlowGraph { 
+            nodes: Vec::new(), 
+            live_in: Vec::new(),
+            live_out: Vec::new(),
+            live_ranges_found: false,
+        }
     }
 
     pub fn from(p: &Program) -> Self {
@@ -78,6 +84,7 @@ impl ControlFlowGraph {
             og_out = Some(self.live_out.clone());
         }
         println!("Iterations: {it}");
+        self.live_ranges_found = true;
     }
 
     pub fn fast_perform_liveness_analysis(&mut self) {
@@ -109,6 +116,7 @@ impl ControlFlowGraph {
             og_out = Some(self.live_out.clone());
         }
         println!("Iterations: {it}");
+        self.live_ranges_found = true;
     }
 
     pub fn get_live_in(&self,idx:usize) -> &HashSet<String> {
@@ -135,6 +143,45 @@ impl ControlFlowGraph {
             }
         }
         res
+    }
+
+    pub fn generate_dot(&self) -> String {
+        let mut sb = String::from(
+            "digraph CFG {\n\tnode [shape=rectangle];\n\n");
+
+        let mut blocks = String::new();
+        let mut edges= String::new();
+
+        for node in self.nodes.iter() {
+            let exp = format!("{}",node.node_kind);
+            let idx = node.idx;
+            let s = format!("\tblock{idx} [label=\"{exp}\"];\n");
+            blocks.push_str(s.as_str());
+
+            for s in node.get_succs() {
+                //if self.live_out.len() < node.idx {continue;}
+                //if self.live_in.len() < *s {continue;}
+                let mut live = String::from("");
+                if self.live_ranges_found {
+                    live = self.live_out[node.idx]
+                        .intersection(&self.live_in[*s])
+                        .map(|l| l.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                } 
+
+                edges.push_str(format!("\tblock{idx} -> block{s} [label=\"{live}\"];\n").as_str());
+            }
+
+        }
+        sb.push_str(&blocks);
+        sb.push('\n');
+
+        sb.push_str(&edges);
+
+        sb.push('}');
+
+        sb
     }
 
 }

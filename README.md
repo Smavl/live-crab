@@ -62,9 +62,13 @@ Want to:
 	- [ ] Use `str` instead of `String` (Figure out lifetime and their specifiers)
 - [ ] Minor semantic analysis (with minor error recovery)
 - [ ] CLI compatibility (Input an actual file)
-- [ ] Visualize with dot
+- [x] Visualize with dot
 - [ ] Fire up local webserver, with a built-in editor(default and vim.js). Show output based in editor input.
-	- [ ] Parse it to js? WebAssembly?
+	- [ ] wasm-bindgen – expose Rust functions to JavaScript.
+	- [ ] wasm-pack – build the Wasm package.
+	- [ ] React (or Vanilla JS) – for UI?
+	- [ ] Editor
+	- [ ] Viz.js?
 
 Might also want to:
 - [ ] Register allocation, k-coloring

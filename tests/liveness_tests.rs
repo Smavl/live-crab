@@ -536,7 +536,7 @@ mod tests {
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
         let mut cfg = ControlFlowGraph::from(&prog);
-        cfg.perform_liveness_analysis();
+        cfg.fast_perform_liveness_analysis();
         let got_in = cfg.get_live_in(1);
         assert_eq!(got_in.len(), 1, "Second node did not have exactly 1 live in variable");
         assert!(got_in.contains(&String::from("b")), "Did not contain variable b")
@@ -550,7 +550,7 @@ mod tests {
         let mut parser = Parser::new(tokens);
         let prog = parser.parse();
         let mut cfg = ControlFlowGraph::from(&prog);
-        cfg.perform_liveness_analysis();
+        cfg.fast_perform_liveness_analysis();
         let got_out = cfg.get_live_out(0);
         assert_eq!(got_out.len(), 1, "First node did not have exactly 1 live in variable");
         assert!(got_out.contains(&String::from("b")), "Did not contain variable b")

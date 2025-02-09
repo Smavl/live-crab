@@ -16,18 +16,7 @@ fn main() -> io::Result<()> {
     let mut cfg = ControlFlowGraph::from(&prog);
     cfg.fast_perform_liveness_analysis();
 
-    let (live_in,live_out) = cfg.get_live_sets();
-
-    println!("Program {prog}");
-    println!("live_in: {:?}",live_in );
-    println!("live_out: {:?}",live_out );
-
-    for (idx, v) in live_in.iter().enumerate() {
-        println!("{idx}, in: {:?}, out: {:?}",*v, live_out.get(idx).unwrap());
-    }
-
-
-    println!("{:?}", cfg.get_live_range(String::from("c")));
+    println!("Dot:\n{}",cfg.generate_dot());
 
     Ok(())
 }

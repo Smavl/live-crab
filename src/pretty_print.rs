@@ -19,7 +19,7 @@ impl Program {
         sb
     }
 
-    fn pretty_print_statement(s: &Statement) -> String {
+    pub fn pretty_print_statement(s: &Statement) -> String {
         let mut sb = String::new();
 
         match s {
@@ -143,3 +143,22 @@ fn pretty_print_operator(op: &Operator) -> String {
         Operator::LessThan => "<".to_string(),
     }
 }
+
+impl Display for NodeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut res = String::new();
+        match self {
+            NodeKind::Return(e) => {
+                res.push_str(&format!("return {};", e));
+            }
+            NodeKind::Assignment(lvl, e) => {
+                res.push_str(&format!("{} = {};", lvl, e,));
+            }
+            NodeKind::Condition(e) => {
+                res.push_str(&format!("if {}", e));
+            }
+        }
+        write!(f, "{}", res)
+    }
+}
+
