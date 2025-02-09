@@ -4,11 +4,13 @@ use std::collections::HashSet;
 #[derive(Debug, PartialEq, Eq)]
 pub struct ControlFlowGraph {
     nodes: Vec<Node>,
+    live_in: Vec<HashSet<String>>,
+    live_out: Vec<HashSet<String>>,
 }
 
 impl ControlFlowGraph {
     pub fn new() -> Self {
-        ControlFlowGraph { nodes: Vec::new() }
+        ControlFlowGraph { nodes: Vec::new(), live_in: Vec::new(), live_out: Vec::new()}
     }
 
     pub fn from(p: &Program) -> Self {
@@ -18,7 +20,7 @@ impl ControlFlowGraph {
     }
 
     pub fn get_nodes(&self) -> Vec<&Node> {
-        self.nodes.iter().map(|n| n).collect()
+        self.nodes.iter().collect()
     }
     pub fn get_node(&self, n: usize) -> &Node {
         if let Some(n) = self.nodes.get(n) {
@@ -26,6 +28,121 @@ impl ControlFlowGraph {
         } else {
             panic!("That node could not be found")
         }
+    }
+
+    // in[n] = use[n] U (out[n] - def[n])
+    fn calc_in(&self, node: &Node) -> HashSet<String> {
+        let out_diff_def = self
+            .calc_out(node)
+            .difference(node.get_defs())
+            .cloned()
+            .collect();
+
+        node.get_uses().union(&out_diff_def).cloned().collect()
+    }
+
+    // out[n] = U in[s], where s = succ[n]
+    fn calc_out(&self, node: &Node) -> HashSet<String> {
+        let succs = node.get_succs();
+        let mut outs = HashSet::new();
+
+        for s in succs {
+            outs.extend(self.get_live_in(*s).iter().cloned());
+        }
+        outs
+
+    }
+
+    pub fn perform_liveness_analysis(&mut self) {
+        // init
+        for _ in 0..self.nodes.len() {
+            self.live_in.push(HashSet::new());
+            self.live_out.push(HashSet::new());
+        }
+
+        let mut og_in = None;
+        let mut og_out = None;
+
+        let mut it= 0;
+
+        loop {
+            for (idx, n) in self.nodes.iter().enumerate() {
+                self.live_in[idx] = self.calc_in(n);
+                self.live_out[idx] = self.calc_out(n);
+            }
+            it += 1;
+            if og_out == Some(self.live_out.clone()) && og_in == Some(self.live_in.clone()) {
+                break;
+            }
+            og_in = Some(self.live_in.clone());
+            og_out = Some(self.live_out.clone());
+        }
+        println!("Iterations: {it}");
+    }
+
+    pub fn fast_perform_liveness_analysis(&mut self) {
+        // init
+        for _ in 0..self.nodes.len() {
+            self.live_in.push(HashSet::new());
+            self.live_out.push(HashSet::new());
+        }
+
+        let mut og_in = None;
+        let mut og_out = None;
+
+        let mut it= 0;
+
+        loop {
+            for i in (0..self.nodes.len()).rev() {
+                self.live_in[i] = self.calc_in(self.get_node(i));
+                self.live_out[i] = self.calc_out(self.get_node(i));
+            }
+            //for (idx, n) in self.nodes.iter().enumerate() {
+            //    self.live_in[idx] = self.calc_in(n);
+            //    self.live_out[idx] = self.calc_out(n);
+            //}
+            it += 1;
+            if og_out == Some(self.live_out.clone()) && og_in == Some(self.live_in.clone()) {
+                break;
+            }
+            og_in = Some(self.live_in.clone());
+            og_out = Some(self.live_out.clone());
+        }
+        println!("Iterations: {it}");
+    }
+
+    pub fn get_live_in(&self,idx:usize) -> &HashSet<String> {
+        self.live_in.get(idx).unwrap()
+    }
+
+    pub fn get_live_out(&self,idx:usize) -> &HashSet<String> {
+        self.live_out.get(idx).unwrap()
+    }
+
+    pub fn get_live_sets(&self) -> (&Vec<HashSet<String>>,&Vec<HashSet<String>>) {
+        (&self.live_in, &self.live_out)
+    }
+
+    pub fn get_live_range(&self, var: String) -> Vec<(usize,usize)> {
+        println!("Live range for {var}");
+        let mut res = Vec::new();
+        for (idx, n) in self.nodes.iter().enumerate() {
+            let succ = n.get_succs();
+            for s in succ.iter() {
+                if self.live_in.get(*s).expect("").contains(&var) {
+                    res.push((idx,*s));
+                }
+            }
+        }
+        res
+    }
+
+}
+
+// WARN: what is this??
+impl Default for ControlFlowGraph {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -54,7 +171,7 @@ impl FlattenerState {
         }
 
         for idx in node.get_succs() {
-            if let Some(_) = self.nodes.get(*idx) {
+            if self.nodes.get(*idx).is_some() {
                 self.nodes[*idx].add_pred(cur_off);
             }
         }
@@ -224,6 +341,7 @@ pub struct Node {
     node_kind: NodeKind,
     use_set: HashSet<String>,
     def_set: HashSet<String>,
+    in_set: HashSet<String>,
     pred: HashSet<usize>,
     succ: HashSet<usize>,
 }
@@ -239,6 +357,7 @@ impl Node {
             def_set: HashSet::new(),
             pred: HashSet::new(),
             succ: HashSet::new(),
+            in_set: HashSet::new(),
         }
     }
 
@@ -265,6 +384,13 @@ impl Node {
     }
     pub fn get_uses(&self) -> &HashSet<String> {
         &self.use_set
+    }
+
+    pub fn contains_def(&self, d:String) -> bool {
+        self.def_set.contains(&d)
+    }
+    pub fn contains_use(&self, d:String) -> bool {
+        self.use_set.contains(&d)
     }
 
     pub fn add_pred(&mut self, n: usize) {

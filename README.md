@@ -7,8 +7,7 @@ The codebase has a "self contained" lexer and parser.
 There is no plan for this language to compile into actual bits and bytes. It is merely a tool to explore techniques and algorithms introduced in my compiler course.
 
 
-
-# Language
+## Language
 
 The language is quite simple:
 
@@ -47,15 +46,15 @@ pub enum Operator {Plus,Minus,Mult,Div,Mod,LessThan}
 ```
 
 
-As of now, the parse is the dictator. If the parser is happy, it is a valid program.
+At this point the parser dictates the validity of programs.
 
-# Roadmap
+## Roadmap
 
 
 Want to:
 
 - [ ] Examples in the README
-- [ ] Finish liveness analyser
+- [x] Finish liveness analyser
 - [ ] fix up tests (clean, unit test, less examples)
 - [ ] General code cleaning
 - [ ] Reduce `clone()`'s. Plausible solutions:

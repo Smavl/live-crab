@@ -8,8 +8,6 @@ mod test_utils;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use super::*;
     use test_utils::*;
 
@@ -24,7 +22,7 @@ mod tests {
         let cfg = ControlFlowGraph::from(&prog);
         assert_eq!(cfg.get_nodes().len(), 1);
         let want = make_ass_node_lit("a", 42);
-        let got = cfg.get_nodes().get(0).unwrap().get_node_kind().clone();
+        let got = cfg.get_nodes().first().unwrap().get_node_kind().clone();
         assert_eq!(Some(got), Some(want));
     }
     #[test]
@@ -37,13 +35,11 @@ mod tests {
         let prog = parser.parse();
         let cfg = ControlFlowGraph::from(&prog);
         let got = cfg.get_nodes();
-        let want_vec = vec![
-            make_ass_node_lit("a", 2),
+        let want_vec = [make_ass_node_lit("a", 2),
             make_ass_node_lit("b", 3),
-            make_return(Expr::Id(String::from("a"))),
-        ];
+            make_return(Expr::Id(String::from("a")))];
         assert_eq!(
-            Some(got.get(0).unwrap().get_node_kind()),
+            Some(got.first().unwrap().get_node_kind()),
             Some(&want_vec[0])
         );
         assert_eq!(
@@ -77,7 +73,7 @@ mod tests {
         let prog = parser.parse();
         let cfg = ControlFlowGraph::from(&prog);
         let got = cfg.get_nodes();
-        let want_vec = vec![
+        let want_vec = [
             make_ass_node_lit("i", 0),
             NodeKind::Condition(Box::new(Expr::BinOp(
                 Box::new(Expr::Id("i".to_string())),
@@ -105,7 +101,7 @@ mod tests {
         ];
         assert_eq!(got.len(), 5);
         assert_eq!(
-            Some(got.get(0).unwrap().get_node_kind()),
+            Some(got.first().unwrap().get_node_kind()),
             Some(&want_vec[0])
         );
         assert_eq!(
@@ -142,7 +138,7 @@ mod tests {
         let prog = parser.parse();
         let cfg = ControlFlowGraph::from(&prog);
         let got = cfg.get_nodes();
-        let want_vec = vec![
+        let want_vec = [
             make_ass_node_lit("i", 0),
             make_ass_node_exp("i", make_inc("i")),
             make_ass_node_exp("i", make_inc("i")),
@@ -154,7 +150,7 @@ mod tests {
             make_return(Expr::Id("i".to_string())),
         ];
         assert_eq!(
-            Some(got.get(0).unwrap().get_node_kind()),
+            Some(got.first().unwrap().get_node_kind()),
             Some(&want_vec[0])
         );
         assert_eq!(
@@ -228,6 +224,50 @@ mod tests {
         let got_use = cfg.get_node(1).get_uses();
         assert!(got_def.is_empty(), "{:?}", cfg.get_node(1));
         assert!(got_use.contains("a"), "{:?}", cfg.get_node(1));
+    }
+    #[test]
+    fn use_def_book_ex() {
+        let s = get_str_from_path("examples/book_ex").unwrap();
+        let lexer = Lexer::new(&s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let cfg = ControlFlowGraph::from(&prog);
+        //This is how it should be:
+        //0: a = 0;
+        //	def: {"a"}, use: {}
+        //1: b = a + 1;
+        //	def: {"b"}, use: {"a"}
+        //2: c = c + 1;
+        //	def: {"c"}, use: {"c"}
+        //3: a = b * 2;
+        //	def: {"a"}, use: {"b"}
+        //4: if a < 9
+        //	def: {}, use: {"a"}
+        //5: return c;
+        //	def: {}, use: {"c"}
+
+        fn check_def_use(cfg: &ControlFlowGraph, node_idx: usize, wanted_def: Vec<&str>, wanted_use: Vec<&str>) {
+            for u in wanted_use.iter() {
+               assert!(cfg.get_node(node_idx).contains_use(u.to_string()));
+            }
+            for d in wanted_def.iter() {
+               assert!(cfg.get_node(node_idx).contains_def(d.to_string()));
+            }
+        }
+
+        // Node 0:
+        check_def_use(&cfg, 0, vec!["a"], vec![]);
+        // Node 1:
+        check_def_use(&cfg, 1, vec!["b"], vec!["a"]);
+        // Node 2:
+        check_def_use(&cfg, 2, vec!["c"], vec!["c"]);
+        // Node 3:
+        check_def_use(&cfg, 3, vec!["a"], vec!["b"]);
+        // Node 4:
+        check_def_use(&cfg, 4, vec![], vec!["a"]);
+        // Node 5:
+        check_def_use(&cfg, 5, vec![], vec!["c"]);
     }
     // succ and pred tests - positive
     // SUCC
@@ -420,7 +460,6 @@ mod tests {
         //	pred: {3}
         //5: return c;
         //	pred: {4}
-        // FIX: detemine the def and/or use set for non-assignments
 
         fn check_pred(cfg: &ControlFlowGraph, node_idx: usize, size: usize, wanted_vec: Vec<usize>) {
             assert_eq!(cfg.get_node(node_idx).get_preds().len(), size, "It was excepted to have size {size}");
@@ -465,7 +504,6 @@ mod tests {
         //	succ: {1, 5}
         //5: return c;
         //	succ: {}
-        // FIX: detemine the def and/or use set for non-assignments
 
         fn check_succ(cfg: &ControlFlowGraph, node_idx: usize, size: usize, wanted_vec: Vec<usize>) {
             assert_eq!(wanted_vec.len(), size, "Dev error!");
@@ -489,4 +527,68 @@ mod tests {
         check_succ(&cfg, 5, 0, vec![]);
     }
     // in and out tests
+    // in set
+    #[test]
+    fn in_set_contains_use() {
+        let s = "b = 41;a = b + 1;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let mut cfg = ControlFlowGraph::from(&prog);
+        cfg.perform_liveness_analysis();
+        let got_in = cfg.get_live_in(1);
+        assert_eq!(got_in.len(), 1, "Second node did not have exactly 1 live in variable");
+        assert!(got_in.contains(&String::from("b")), "Did not contain variable b")
+    }
+    // out set
+    #[test]
+    fn out_set_succ() {
+        let s = "b = 41;a = b + 1;";
+        let lexer = Lexer::new(s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let mut cfg = ControlFlowGraph::from(&prog);
+        cfg.perform_liveness_analysis();
+        let got_out = cfg.get_live_out(0);
+        assert_eq!(got_out.len(), 1, "First node did not have exactly 1 live in variable");
+        assert!(got_out.contains(&String::from("b")), "Did not contain variable b")
+    }
+
+    // liveness book_ex 
+    #[test]
+    fn liveranges_book_ex () {
+        let s = get_str_from_path("examples/book_ex").unwrap();
+        let lexer = Lexer::new(&s);
+        let tokens = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let prog = parser.parse();
+        let mut cfg = ControlFlowGraph::from(&prog);
+        cfg.fast_perform_liveness_analysis();
+
+        let c_live = cfg.get_live_range(String::from("c"));
+        let b_live = cfg.get_live_range(String::from("b"));
+        let a_live = cfg.get_live_range(String::from("a"));
+
+        assert!(c_live.contains(&(0,1)));
+        assert!(c_live.contains(&(1,2)));
+        assert!(c_live.contains(&(2,3)));
+        assert!(c_live.contains(&(3,4)));
+        assert!(c_live.contains(&(4,5)));
+        assert!(c_live.contains(&(4,1)));
+        assert_eq!(c_live.len(), 6);
+
+        assert!(b_live.contains(&(1,2)));
+        assert!(b_live.contains(&(2,3)));
+        assert_eq!(b_live.len(), 2);
+
+        assert!(a_live.contains(&(0,1)));
+        assert!(a_live.contains(&(3,4)));
+        assert!(a_live.contains(&(4,1)));
+        assert!(!a_live.contains(&(1,2)));
+        assert!(!a_live.contains(&(2,3)));
+        assert_eq!(a_live.len(), 3);
+    }
+
 }
